@@ -1,9 +1,8 @@
-
 ### L.GeoJSON.WFS
 
 Extension of the original WFS class developed within the azgs-packaged. This is a branch of the entire package but only the WFS layer is modified.
 
-- Purpose: A WFS-layer that works with all geometry types and WFS vendors.
+- Purpose: A WFS-layer that works with all geometry types and WFS vendors. Additional functionality added for smart adding of features by not adding features that already exists (requires specifying a uniqueKey in options).
 - Usage Example:
 ```
 var geojsonWfsLayer = new L.GeoJSON.WFS("http://geoserver.smap.se/geoserver/wfs", {
