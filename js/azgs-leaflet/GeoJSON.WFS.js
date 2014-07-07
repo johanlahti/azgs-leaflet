@@ -4,17 +4,18 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 	 
 	options: {
 		uniqueKey: "",
-		noBindZoom: true,
+		noBindZoom: false,
 		noBindDrag: false,
+		xhrType: "POST",
 		params: {
-				typeName: null, // required
-				service: "WFS",
-				version: "1.1.0",
-				request: "GetFeature",
-				srsName: "EPSG:4326",
-				format: "text/geojson",
-				maxFeatures: 10000,
-				outputFormat: "json"
+			typeName: null, // required
+			service: "WFS",
+			version: "1.1.0",
+			request: "GetFeature",
+			srsName: "EPSG:4326",
+			format: "text/geojson",
+			maxFeatures: 10000,
+			outputFormat: "json"
 		},
 		selectStyle: {
 			weight: 5,
@@ -22,66 +23,25 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 	        opacity: 1
 		}
 	},
-
+	
+	/**
+	 * Keeps track of if a feature has been added or not
+	 * by storing its unique id: feature.id.
+	 */
+	_featureIndexes: [],
+	
 	initialize: function(serviceUrl, options) {
 		options = options || {};
-		
 		
 		options = $.extend(true, {}, this.options, options);
 		
 		L.GeoJSON.prototype.initialize.call(this, null, options);
 		
-		// JL: Added proxy here.
 		if (options.proxy || L.GeoJSON.WFS.proxy) {
 			this.proxy = options.proxy || L.GeoJSON.WFS.proxy || null;
 		}
-		
+		this._featureIndexes = [];
 		this.getFeatureUrl = serviceUrl;
-		
-//		this.on("featureparse", function(e) {
-//			if (e.geometryType != 'Point' && e.geometryType != 'MultiPoint') {
-//				if (options.style) {
-//					e.layer._originalStyle = options.style;
-//					e.layer.setStyle(options.style);
-//				} else if (options.filteredStyles) {
-//					var fld = options.filteredStyles.propName;
-//					var itemVal = e.properties[fld];
-//					var style = L.Util.extend({}, options.filteredStyles['default'], options.filteredStyles.styles[itemVal]); 
-//					e.layer._originalStyle = style;
-//					e.layer.setStyle(style);
-//				}
-//			}
-//			if (options.popupObj && options.popupOptions) {
-//				e.layer.on("click", function(evt) {
-//					e.layer._map.openPopup(options.popupObj.generatePopup(e, options.popupOptions));
-//					if (options.popupFn) { options.popupFn(e); }
-//				});			
-//			}
-//			else if (options.popupFld && e.properties.hasOwnProperty(options.popupFld)) {
-//				e.layer.bindPopup(e.properties[options.popupFld], { maxWidth: 600 });
-//			}
-//			if (options.hoverObj || options.hoverFld) {
-//				e.layer.on("mouseover", function(evt) {
-//					hoverContent = options.hoverObj ? options.hoverObj.generateContent(e) : e.properties[options.hoverFld] || "Invalid field name" ;
-//					hoverPoint = e.layer._map.latLngToContainerPoint(evt.target._latlng);
-//					e.layer._hoverControl = new L.Control.Hover(hoverPoint, hoverContent);
-//					e.layer._map.addControl(e.layer._hoverControl);	
-//				});
-//				e.layer.on("mouseout", function(evt) {
-//					e.layer._map.removeControl(e.layer._hoverControl);
-//				});
-//			}
-//			if (options.hoverColor) {
-//				e.layer.on("mouseover", function(evt) {
-//					var hoverStyle = L.Util.extend({}, e.layer._originalStyle, { stroke: true, color: options.hoverColor, weight: 3 });
-//					e.layer.setStyle(hoverStyle);
-//				});
-//				e.layer.on("mouseout", function(evt) {
-//					e.layer.setStyle(e.layer._originalStyle);
-//				});
-//			}
-//			if (e.layer instanceof L.Marker.AttributeFilter) { e.layer.setIcon(e); }
-//		});
 	},
 	
 	onAdd: function(map) {
@@ -91,32 +51,46 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		this._bindEvents(map);
 	},
 	
+	onRemove: function(map) {
+		if (this.xhr) {
+			this.xhr.abort();
+			this.xhr = null;
+			this.fire("loadcancel", {layer: this});
+		}
+		this._unbindEvents(map);
+		L.GeoJSON.prototype.onRemove.call(this, map);
+	},
+	
+	_onZoomEnd: function() {
+		if (this._prevZoom > this._map.getZoom()) {
+			this._refresh();
+		}
+		this._prevZoom = this._map.getZoom();
+	},
+	
 	_bindEvents: function(map) {
 		var self = this;
+		
+		this.__refresh = this.__refresh || $.proxy(this._refresh, this);
+		this.__onZoomEnd = this.__onZoomEnd || $.proxy(this._onZoomEnd, this);
+		
 		if (!this.options.noBindDrag) {
-			map.on("dragend", function() {
-				self._refresh();
-			});
+			map.on("dragend", this.__refresh);
 		}
 
 		// Only refresh is last zoom was higher than current (i.e. map zoomed out)
 		if (!this.options.noBindZoom) {
 			var self = this;
-			var prevZoom = map.getZoom();
-			map.on("zoomend", function() {
-				if (prevZoom > map.getZoom()) {
-					self._refresh();
-				}
-				prevZoom = map.getZoom();
-			});
+			this._prevZoom = map.getZoom();
+			map.on("zoomend", this.__onZoomEnd);
 		}
 	},
 	
-	/**
-	 * Keeps track of if a feature has been added or not
-	 * by storing its unique id: feature.id.
-	 */
-	_featureIndexes: [],
+	_unbindEvents: function(map) {
+		map.off("dragend", this.__refresh);
+		map.off("zoomend", this.__onZoomEnd);
+	},
+	
 	
 	/**
 	 * Overriding method so that features are added only if they are 
@@ -139,7 +113,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 				feature = features[i];
 				var uniqueVal = "";
 				if (uniqueKey) {
-					uniqueKeyArr = uniqueKey.split(",");
+					uniqueKeyArr = uniqueKey.split(";");
 					var props = feature.properties;
 					$.each(uniqueKeyArr, function(i, val) {
 						uniqueVal += (""+props[val]);
@@ -158,7 +132,27 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		}
 
 		var options = this.options;
-		if (options.filter && !options.filter(geojson)) { return; }
+//		if (options.filter && !options.filter(geojson)) { return; }
+		
+		var isPointLayer = !options.pointToLayer && geojson.geometry && (geojson.geometry.type === "MultiPoint" || geojson.geometry.type === "Point");
+		if (isPointLayer && !options.pointToLayer && options.style) {
+			var func;
+			if (options.style.icon) {
+				// Create a marker with an icon with given options
+				func = function(feature, latLng) {
+					return L.marker(latLng, {
+	     				icon: L.icon(options.style.icon)
+	     			});
+				}
+			}
+			else {
+				func = function(feature, latLng) {
+					return L.circleMarker(latLng, options.style);
+				};
+			}
+			options.pointToLayer = func;
+	    }
+		
 		var layer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng, options);
 		layer.feature = L.GeoJSON.asFeature(geojson);
 		layer.defaultOptions = layer.options;
@@ -182,53 +176,12 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			return false;
 		}
 		var bounds = this._map.getBounds();
+		
 		this.getFeature(bounds, function() {
 			if (self.options.uniqueKey === null) {
 				self.clearLayers();
 			}
 			self.addData(self.jsonData);
-			
-			var html;
-			var onFeatureClick = $.proxy(function(evt) {
-				var f = evt.target.feature,
-					target = evt.target;
-				var key = self.options.uniqueKey || "-";
-				var paramVal = null;
-				var layerId = self.options.layerId || target.options.layerId;
-				if (key) {
-					var val;
-					if (key.split(",").length > 1) {
-						var keyArr = key.split(",");
-						val = f.properties[keyArr[0]] + "_" + f.properties[keyArr[1]];
-					}
-					else {
-						val = f.properties[key];						
-					}
-					if (layerId && val) {
-						paramVal = [layerId, key, val].join(":");
-					}
-				}
-				// TODO: temp hack. Get layer id some other way
-				self._map.fire("selected", {
-					layerType: "vector",
-					paramVal: paramVal,
-					layerId: layerId,
-					properties: f.properties
-				});					
-				self.eachLayer(function(lay) {
-					self.resetStyle(lay);
-				});
-				if (target.setStyle) {
-					target.setStyle(self.options.selectStyle);					
-				}
-			    if (self.bringToFront && !L.Browser.ie && !L.Browser.opera) {
-			    	self.bringToFront();
-			    }
-			    
-			}, this);
-			self.eachLayer(function(f) {
-				f.on("click", onFeatureClick);
-			});
 		});
 	},
 	
@@ -280,8 +233,18 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			}
 			this.options.params.bbox = this._boundsToBbox(bounds, reverseBbox);
 		}
+		var url,
+			params = null;
+		if (this.options.xhrType === "GET") {
+			url = this.proxy ? this.proxy + encodeURIComponent(this.getFeatureUrl + "?" + $.param(this.options.params)) : this.getFeatureUrl;
+			params = null;
+		}
+		else {
+			// POST
+			url = this.proxy ? this.proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
+			params = this.options.params;
+		}
 		
-		var url = this.proxy ? this.proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
 		if (this.xhr) {
 			this.xhr.abort();
 			this.xhr = null;
@@ -289,8 +252,8 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		this.fire("loading", {layer: this});
 		this.xhr = $.ajax({
 			url: url,
-			type: "POST",
-			data: this.options.params,
+			type: this.options.xhrType,
+			data: params,
 			context: this,
 			success: function(response) {
 				if (response.type && response.type == "FeatureCollection") {
@@ -299,6 +262,9 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 					callback();
 					this.fire("load", {layer: this});
 				}
+			},
+			error: function() {
+				this.fire("loaderror", {layer: this});
 			},
 			dataType: "json"
 		});
@@ -358,6 +324,18 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 						geom.coordinates[p] = coordsArr; // needed?
 					}
 					break;
+				case "Polygon":
+					coordsArr = geom.coordinates[0];
+					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
+						coords = coordsArr[p];
+						if (this.options.reverseAxis) {
+							coords = this.swapCoords( coords );								
+						}
+						projectedCoords = projectPoint(coords, inputCrs);
+						coordsArr[p] = projectedCoords;
+					}
+					
+					break;
 				case "MultiPolygon":
 					coordsArr = geom.coordinates[0][0];
 					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
@@ -368,8 +346,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 						projectedCoords = projectPoint(coords, inputCrs);
 						coordsArr[p] = projectedCoords;
 					}
-					geom.coordinates[0][0] = coordsArr; // needed?
-					
+//					geom.coordinates[0][0] = coordsArr; // needed?
 					break;
 			}
 		}
