@@ -6,7 +6,6 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		uniqueKey: "",
 		noBindZoom: false,
 		noBindDrag: false,
-		useProxy: false,
 		xhrType: "POST",
 		params: {
 			typeName: null, // required
@@ -20,8 +19,8 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		},
 		selectStyle: {
 			weight: 5,
-			color: '#00FFFF',
-			opacity: 1
+		        color: '#00FFFF',
+		        opacity: 1
 		}
 	},
 	
@@ -38,9 +37,9 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		
 		L.GeoJSON.prototype.initialize.call(this, null, options);
 		
-		if (options.proxy || L.GeoJSON.WFS.proxy) {
-			this.proxy = options.proxy || L.GeoJSON.WFS.proxy || null;
-		}
+		// if (options.proxy || L.GeoJSON.WFS.proxy) {
+		// 	this.proxy = options.proxy || L.GeoJSON.WFS.proxy || null;
+		// }
 		this._featureIndexes = [];
 		this.getFeatureUrl = serviceUrl;
 	},
@@ -103,8 +102,8 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 	 */
 	addData: function (geojson) {
 		var features = L.Util.isArray(geojson) ? geojson : geojson.features,
-			i, len, feature, fid,
-			uniqueKey = this.options.uniqueKey;
+		    i, len, feature, fid,
+		    uniqueKey = this.options.uniqueKey;
 		if (features) {
 			var featureIndexes = this._featureIndexes,
 				addData = this.addData;
@@ -141,8 +140,8 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 				// Create a marker with an icon with given options
 				func = function(feature, latLng) {
 					return L.marker(latLng, {
-		 				icon: L.icon(options.style.icon)
-		 			});
+	     				icon: L.icon(options.style.icon)
+	     			});
 				}
 			}
 			else {
@@ -151,7 +150,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 				};
 			}
 			options.pointToLayer = func;
-		}
+	    }
 		
 		var layer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng, options);
 		layer.feature = L.GeoJSON.asFeature(geojson);
@@ -191,43 +190,46 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 	 * @returns {String}
 	 */
 	_boundsToBbox: function(bounds, reverseAxisOrder) {
-		var decimal = 6; 
-		var mult = Math.pow(10, decimal);
-		var xmin = Math.round(bounds.getWest() * mult) / mult;
-		var ymin = Math.round(bounds.getSouth() * mult) / mult;
-		var xmax = Math.round(bounds.getEast() * mult) / mult;
-		var ymax = Math.round(bounds.getNorth() * mult) / mult;
-		if (reverseAxisOrder === true) {
-			return ymin + "," + xmin + "," + ymax + "," + xmax;
-		} else {
-			return xmin + "," + ymin + "," + xmax + "," + ymax;
-		}
-	},
-	
-	_projectBounds: function(bounds, fromEpsg, toEpsg) {
-		this.centerLonLat = null;
-		
-		var sw = window.proj4(fromEpsg, toEpsg, [bounds.getWest(), bounds.getSouth()]),
-			se = window.proj4(fromEpsg, toEpsg, [bounds.getEast(), bounds.getSouth()]),
-			ne = window.proj4(fromEpsg, toEpsg, [bounds.getEast(), bounds.getNorth()]),
-			nw = window.proj4(fromEpsg, toEpsg, [bounds.getWest(), bounds.getNorth()]);
+    	var decimal = 6; 
+        var mult = Math.pow(10, decimal);
+        var xmin = Math.round(bounds.getWest() * mult) / mult;
+        var ymin = Math.round(bounds.getSouth() * mult) / mult;
+        var xmax = Math.round(bounds.getEast() * mult) / mult;
+        var ymax = Math.round(bounds.getNorth() * mult) / mult;
+        if (reverseAxisOrder === true) {
+            return ymin + "," + xmin + "," + ymax + "," + xmax;
+        } else {
+            return xmin + "," + ymin + "," + xmax + "," + ymax;
+        }
+    },
+    
+    _projectBounds: function(bounds, fromEpsg, toEpsg) {
+    	this.centerLonLat = null;
+    	
+    	var sw = window.proj4(fromEpsg, toEpsg, [bounds.getWest(), bounds.getSouth()]),
+    		se = window.proj4(fromEpsg, toEpsg, [bounds.getEast(), bounds.getSouth()]),
+    		ne = window.proj4(fromEpsg, toEpsg, [bounds.getEast(), bounds.getNorth()]),
+    		nw = window.proj4(fromEpsg, toEpsg, [bounds.getWest(), bounds.getNorth()]);
 
-		var left   = Math.min(sw[0], se[0]),
-			bottom = Math.min(sw[1], se[1]),
-			right  = Math.max(nw[0], ne[0]),
-			top	= Math.max(nw[1], ne[1]);
-		
-		bounds = L.latLngBounds(L.latLng(bottom, left), L.latLng(top, right));
-		return bounds;
-	},
+        var left   = Math.min(sw[0], se[0]),
+        	bottom = Math.min(sw[1], se[1]),
+        	right  = Math.max(nw[0], ne[0]),
+        	top    = Math.max(nw[1], ne[1]);
+        
+        bounds = L.latLngBounds(L.latLng(bottom, left), L.latLng(top, right));
+        return bounds;
+    },
 	
 	getFeature: function(bounds, callback) {
+		var proxy = this.options.proxy || null;
 		if (bounds && !this.options.params.filter) {
 			// Make a filter so that we only fetch features within current viewport.
 			// Don't use bbox if filter is specified (wfs does not support a combination)
 			var reverseBbox = this.options.hasOwnProperty("reverseAxisBbox") ? this.options.reverseAxisBbox : this.options.reverseAxis;
 			if (this.options.inputCrs) {
-				bounds = this._projectBounds(bounds, "EPSG:4326", this.options.inputCrs);
+				if (this.options.inputCrs.toUpperCase() !== "EPSG:4326") {
+					bounds = this._projectBounds(bounds, "EPSG:4326", this.options.inputCrs);
+				}
 				this.options.params.srsName = this.options.inputCrs;
 			}
 			this.options.params.bbox = this._boundsToBbox(bounds, reverseBbox);
@@ -236,15 +238,14 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			params = null;
 		if (this.options.xhrType === "GET") {
 			url = this.getFeatureUrl + "?" + $.param(this.options.params);
+			url = this.proxy ? this.proxy + encodeURIComponent(url) : url;
 			params = null;
 		}
 		else {
 			// POST
-			url = this.getFeatureUrl;
+			url = proxy ? proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
 			params = this.options.params;
 		}
-
-		url = this.options.useProxy ? smap.config.ws.proxy + encodeURIComponent(url) : url;
 		
 		if (this.xhr) {
 			this.xhr.abort();
@@ -257,19 +258,29 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			data: params,
 			context: this,
 			success: function(response) {
-				if (response.type && response.type == "FeatureCollection") {
-					this.jsonData = response;
-					this.toGeographicCoords(this.options.inputCrs || "EPSG:4326");
-					
-					callback();
-					this.fire("load", {layer: this});
-				}
+				this.onGetFeatureSuccess(response, callback);
 			},
-			error: function() {
-				this.fire("loaderror", {layer: this});
-			},
+			error: this.onGetFeatureError,
 			dataType: "json"
 		});
+	},
+
+	/**
+	 * The function must be called with context <this> (this class instance).
+	 * @param  {[type]} response [description]
+	 * @return {[type]}          [description]
+	 */
+	onGetFeatureSuccess: function(response, callback) {
+		if (response.type && response.type == "FeatureCollection") {
+			this.jsonData = response;
+			this.toGeographicCoords(this.options.inputCrs || "EPSG:4326");
+			callback();
+			this.fire("load", {layer: this});
+		}
+	},
+
+	onGetFeatureError: function(e) {
+		this.fire("loaderror", {layer: this});
 	},
 	
 	swapCoords: function(coords) {
@@ -281,19 +292,23 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		function projectPoint(coordinates /*[easting, northing]*/, inputCrs) {
 			var source = inputCrs || "EPSG:4326",
 				dest = "EPSG:4326",
-				x = coordinates[0], 
+				x = coordinates[0],
 				y = coordinates[1];
+			if (source == dest) {
+				return coordinates;
+			}
 			return window.proj4(source, dest, [x, y]); // [easting, northing]
 		};
 		
 		var coords, coordsArr, projectedCoords, i, p, geom,
 			features = this.jsonData.features || [];
+		var options = this.options;
 		for (i=0,len=features.length; i<len; i++) {
 			geom = features[i].geometry;
 			switch (geom.type) {
 				case "Point":
 					coords = geom.coordinates;
-					if (this.options.reverseAxis) {
+					if (options.reverseAxis) {
 						coords = this.swapCoords(coords);
 					}
 					projectedCoords = projectPoint(coords, inputCrs);
@@ -302,23 +317,34 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 				case "MultiPoint":
 					for (p=0, len2=geom.coordinates.length; p<len2; p++) {
 						coords = geom.coordinates[p];
-						if (this.options.reverseAxis) {
+						if (options.reverseAxis) {
 							coords = this.swapCoords(coords);
 						}
 						projectedCoords = projectPoint(coords, inputCrs);
-						features[i].geometry.coordinates[p] = projectedCoords;
+						// features[i].geometry.coordinates[p] = projectedCoords;
+					}
+					break;
+				case "LineString":
+					// TODO Not yet tested
+					coordsArr = geom.coordinates[0];
+					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
+						coords = coordsArr[p];
+						if (options.reverseAxis) {
+							coords = this.swapCoords( coords );
+						}
+						projectedCoords = projectPoint(coords, inputCrs);
+						coordsArr[p] = projectedCoords;
 					}
 					break;
 				case "MultiLineString":
 					coordsArr = [];
-					var pp, ii,
-						newCoords = [];
+					var pp, len2, len3;
 					for (p=0, len2=geom.coordinates.length; p<len2; p++) {
 						coordsArr = geom.coordinates[p];
 						for (pp=0, len3=coordsArr.length; pp<len3; pp++) {
 							coords = coordsArr[pp];
-							if (this.options.reverseAxis) {
-								coords = this.swapCoords( coords );								
+							if (options.reverseAxis) {
+								coords = swapCoords( coords );
 							}
 							projectedCoords = projectPoint(coords, inputCrs);
 							coordsArr[pp] = projectedCoords;
@@ -330,25 +356,30 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 					coordsArr = geom.coordinates[0];
 					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
 						coords = coordsArr[p];
-						if (this.options.reverseAxis) {
-							coords = this.swapCoords( coords );								
+						if (options.reverseAxis) {
+							coords = this.swapCoords( coords );
 						}
 						projectedCoords = projectPoint(coords, inputCrs);
 						coordsArr[p] = projectedCoords;
 					}
-					
 					break;
 				case "MultiPolygon":
-					coordsArr = geom.coordinates[0][0];
-					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
-						coords = coordsArr[p];
-						if (this.options.reverseAxis) {
-							coords = this.swapCoords( coords );								
+					coordsArr = [];
+					var pp, ppp, len2, len3, len4, coordsArr2;
+					for (p=0, len2=geom.coordinates.length; p<len2; p++) {
+						coordsArr = geom.coordinates[p];
+						for (pp=0, len3=coordsArr.length; pp<len3; pp++) {
+							coordsArr2 = coordsArr[pp];
+							for (ppp=0, len4=coordsArr2.length; ppp<len4; ppp++) {
+								coords = coordsArr2[ppp];
+								if (options.reverseAxis) {
+									coords = swapCoords( coords );
+								}
+								projectedCoords = projectPoint(coords, inputCrs);
+								coordsArr2[ppp] = projectedCoords;
+							}
 						}
-						projectedCoords = projectPoint(coords, inputCrs);
-						coordsArr[p] = projectedCoords;
 					}
-//					geom.coordinates[0][0] = coordsArr; // needed?
 					break;
 			}
 		}
