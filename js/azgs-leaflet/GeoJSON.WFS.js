@@ -189,7 +189,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		}
 		var bounds = null;
 		if (!(options.bounds === null || options.bounds === false)) {
-			bounds = this._map.getBounds();
+			bounds = options.bounds || this._map.getBounds();
 		}
 		this.getFeature(bounds, function() {
 			if (self.options.uniqueKey === null) {
