@@ -6,6 +6,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		uniqueKey: "",
 		noBindZoom: false,
 		noBindDrag: false,
+		noBbox: false, // Will load all data once (without bbox) and not request again
 		xhrType: "POST",
 		params: {
 			typeName: null, // required
@@ -188,8 +189,12 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			return false;
 		}
 		var bounds = null;
-		if (!(options.bounds === null || options.bounds === false)) {
+		if (!(options.bounds === null || options.bounds === false || this.options.noBbox)) {
 			bounds = options.bounds || this._map.getBounds();
+		}
+		if (this.options.noBbox && $.isEmptyObject(this._layers) === false) {
+			// When using noBbox->true we should only request features once.
+			return false;
 		}
 		this.getFeature(bounds, function() {
 			if (self.options.uniqueKey === null) {
