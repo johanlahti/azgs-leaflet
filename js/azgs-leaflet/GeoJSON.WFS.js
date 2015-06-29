@@ -8,6 +8,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		noBindDrag: false,
 		noBbox: false, // Will load all data once (without bbox) and not request again
 		xhrType: "POST",
+		noParams: false, // true -> don't add any params to the request
 		params: {
 			typeName: null, // required
 			service: "WFS",
@@ -43,6 +44,9 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		// }
 		this._featureIndexes = [];
 		this.getFeatureUrl = serviceUrl;
+		if (!this.options.separator && this.getFeatureUrl.search(/\?/) > -1) {
+			this.options.separator = "&"; // Don't add another "?" to url
+		}
 	},
 	
 	onAdd: function(map) {
@@ -252,29 +256,35 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 	
 	getFeature: function(bounds, callback) {
 		var proxy = this.options.proxy || null;
-		if (bounds && !this.options.params.filter) {
-			// Make a filter so that we only fetch features within current viewport.
-			// Don't use bbox if filter is specified (wfs does not support a combination)
-			var reverseBbox = this.options.hasOwnProperty("reverseAxisBbox") ? this.options.reverseAxisBbox : this.options.reverseAxis;
-			if (this.options.inputCrs) {
-				if (this.options.inputCrs.toUpperCase() !== "EPSG:4326") {
-					bounds = this._projectBounds(bounds, "EPSG:4326", this.options.inputCrs);
-				}
-				this.options.params.srsName = this.options.inputCrs;
-			}
-			this.options.params.bbox = this._boundsToBbox(bounds, reverseBbox);
-		}
+
 		var url,
 			params = null;
-		if (this.options.xhrType === "GET") {
-			url = this.getFeatureUrl + "?" + $.param(this.options.params);
-			url = this.proxy ? this.proxy + encodeURIComponent(url) : url;
-			params = null;
+		if (this.options.noParams) {
+			url = proxy ? proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
 		}
 		else {
-			// POST
-			url = proxy ? proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
-			params = this.options.params;
+			if (bounds && !this.options.params.filter) {
+				// Make a filter so that we only fetch features within current viewport.
+				// Don't use bbox if filter is specified (wfs does not support a combination)
+				var reverseBbox = this.options.hasOwnProperty("reverseAxisBbox") ? this.options.reverseAxisBbox : this.options.reverseAxis;
+				if (this.options.inputCrs) {
+					if (this.options.inputCrs.toUpperCase() !== "EPSG:4326") {
+						bounds = this._projectBounds(bounds, "EPSG:4326", this.options.inputCrs);
+					}
+					this.options.params.srsName = this.options.inputCrs;
+				}
+				this.options.params.bbox = this._boundsToBbox(bounds, reverseBbox);
+			}
+			if (this.options.xhrType === "GET") {
+				url = this.getFeatureUrl + this.options.separator + $.param(this.options.params);
+				url = this.proxy ? this.proxy + encodeURIComponent(url) : url;
+				params = null;
+			}
+			else {
+				// POST
+				url = proxy ? proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
+				params = this.options.params;
+			}
 		}
 		
 		if (this.xhr) {
