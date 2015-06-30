@@ -8,6 +8,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		noBindDrag: false,
 		noBbox: false, // Will load all data once (without bbox) and not request again
 		xhrType: "POST",
+		separator: "?",
 		noParams: false, // true -> don't add any params to the request
 		params: {
 			typeName: null, // required
