@@ -9,9 +9,11 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		noBbox: false, // Will load all data once (without bbox) and not request again
 		xhrType: "POST",
 		separator: "?",
-		noParams: false, // true -> don't add any params to the request
+		includeParams: null, // {Array} If provided, only params in this array will be included. Note! Cannot coexist with excludeParams.
+		excludeParams: null, // {Array} If provided, params in this array will not be included, but other params will. Note! Cannot coexist with includeParams.
+		noParams: false, // true -> don't add any params to the request. Note! If true, includeParams and excludeParams will be ignored.
 		params: {
-			typeName: null, // required
+			typeName: null, // required for WFS connections
 			service: "WFS",
 			version: "1.1.0",
 			request: "GetFeature",
@@ -48,6 +50,12 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		if (!this.options.separator && this.getFeatureUrl.search(/\?/) > -1) {
 			this.options.separator = "&"; // Don't add another "?" to url
 		}
+
+		if (this.options.noParams) {
+			// These should be ignored if noParams is true
+			this.options.includeParams = null;
+			this.options.excludeParams = null;
+		}
 	},
 	
 	onAdd: function(map) {
@@ -55,6 +63,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 		
 		this._refresh();
 		this._bindEvents(map);
+
 	},
 	
 	onRemove: function(map) {
@@ -260,6 +269,8 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 
 		var url,
 			params = null;
+
+		
 		if (this.options.noParams) {
 			url = proxy ? proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
 		}
@@ -276,15 +287,39 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 				}
 				this.options.params.bbox = this._boundsToBbox(bounds, reverseBbox);
 			}
+			params = this.options.params;
+
+			// -- Include or exclude params --
+
+			if (this.options.includeParams) {
+				// Create a new params object with only given parameters.
+				var newParams = {},
+					key,
+					includeParams = this.options.includeParams;
+				for (var i = 0; i < includeParams.length; i++) {
+					key = includeParams[i];
+					newParams[key] = params[key];
+				}
+				params = newParams; // set new params
+			}
+			else if (this.options.excludeParams) {
+				// Remove all params given in the array
+				var excludeParams = this.options.excludeParams;
+				for (var i = 0; i < excludeParams.length; i++) {
+					delete params[excludeParams[i]];
+				}
+			}
+
+			// -- Prepare for POST or GET
+
 			if (this.options.xhrType === "GET") {
-				url = this.getFeatureUrl + this.options.separator + $.param(this.options.params);
+				url = this.getFeatureUrl + this.options.separator + $.param(params);
 				url = this.proxy ? this.proxy + encodeURIComponent(url) : url;
 				params = null;
 			}
 			else {
 				// POST
 				url = proxy ? proxy + encodeURIComponent(this.getFeatureUrl) : this.getFeatureUrl;
-				params = this.options.params;
 			}
 		}
 		
@@ -293,6 +328,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			this.xhr = null;
 		}
 		this.fire("loading", {layer: this});
+		
 		this.xhr = $.ajax({
 			url: url,
 			type: this.options.xhrType,
