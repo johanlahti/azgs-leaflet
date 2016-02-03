@@ -377,6 +377,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			return window.proj4(source, dest, [x, y]); // [easting, northing]
 		};
 		
+		var swapCoords = this.swapCoords;
 		var coords, coordsArr, projectedCoords, i, p, geom,
 			features = this.jsonData.features || [];
 		var options = this.options;
@@ -386,7 +387,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 				case "Point":
 					coords = geom.coordinates;
 					if (options.reverseAxis) {
-						coords = this.swapCoords(coords);
+						coords = swapCoords(coords);
 					}
 					projectedCoords = projectPoint(coords, inputCrs);
 					geom.coordinates = projectedCoords;
@@ -395,7 +396,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 					for (p=0, len2=geom.coordinates.length; p<len2; p++) {
 						coords = geom.coordinates[p];
 						if (options.reverseAxis) {
-							coords = this.swapCoords(coords);
+							coords = swapCoords(coords);
 						}
 						projectedCoords = projectPoint(coords, inputCrs);
 						// features[i].geometry.coordinates[p] = projectedCoords;
@@ -407,7 +408,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
 						coords = coordsArr[p];
 						if (options.reverseAxis) {
-							coords = this.swapCoords( coords );
+							coords = swapCoords( coords );
 						}
 						projectedCoords = projectPoint(coords, inputCrs);
 						coordsArr[p] = projectedCoords;
@@ -434,7 +435,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
 						coords = coordsArr[p];
 						if (options.reverseAxis) {
-							coords = this.swapCoords( coords );
+							coords = swapCoords( coords );
 						}
 						projectedCoords = projectPoint(coords, inputCrs);
 						coordsArr[p] = projectedCoords;
