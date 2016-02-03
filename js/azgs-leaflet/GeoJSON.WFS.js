@@ -404,7 +404,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 					break;
 				case "LineString":
 					// TODO Not yet tested
-					coordsArr = geom.coordinates[0];
+					coordsArr = geom.coordinates;
 					for (p=0, lenP=coordsArr.length; p<lenP; p++) {
 						coords = coordsArr[p];
 						if (options.reverseAxis) {
