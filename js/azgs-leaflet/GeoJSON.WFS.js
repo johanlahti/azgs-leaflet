@@ -175,6 +175,17 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 			}
 			options.pointToLayer = func;
 		}
+		if (!isPointLayer) {
+			// Set a default style on line and polygon layers, or resetStyle will not work resulting in 
+			// new selections visually not unselecting unselected features (everything clicked on appears selected)
+			options.style = options.style || {
+				fillColor: "#357ebd",
+				color: "#357ebd",
+				fillOpacity: 0.5,
+				strokeOpacity: 1,
+				weight: 3
+			}
+		}
 		
 		var layer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng, options);
 		layer.feature = L.GeoJSON.asFeature(geojson);
