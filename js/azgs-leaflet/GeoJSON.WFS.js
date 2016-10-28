@@ -3,7 +3,7 @@ L.GeoJSON.WFS = L.GeoJSON.extend({
 	CLASS_NAME: "L.GeoJSON.WFS",
 	 
 	options: {
-		uniqueKey: "",
+		uniqueKey: false, // If returned features do not have an id (as the geojson spec tells it should...) then you must use a property as a fallback
 		noBindZoom: false,
 		noBindDrag: false,
 		noBbox: false, // Will load all data once (without bbox) and not request again
